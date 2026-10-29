@@ -5,7 +5,7 @@ cost together, on realistic simulated calls rather than demos.
 
 | Study | Question | Answer |
 |---|---|---|
-| **[Speech gate](#study-1-speech-gate)** (2026-10-29) | Can an agent check each sentence against its sources before the caller hears it, and what does that cost in delay? | Yes: free rules plus a fast decision model (Jev), only on sentences with something to check, stopped 90% of wrong sentences and wrongly held 2.6% of correct ones, adding 161 ms. LLM judges added 0.7–1.6 s. |
+| **[Speech gate](#study-1-speech-gate)** (2026-10-29) | Can an agent check each sentence against its sources before the caller hears it, and what does that cost in delay? | Yes, on simple knowledge packs: free rules plus a fast decision model (Jev), only on sentences with something to check (`cascade-jev`), stopped 90% of wrong sentences on a held-out scenario and wrongly held 2.6% of correct ones, adding 161 ms. LLM judges added 0.7–1.6 s. |
 
 The pieces shared across studies are scenario packs, simulated callers, the call session (identity
 check, tool validation), after-call audits, cached and budgeted model access, and fixed-rule picks.
@@ -39,11 +39,12 @@ LLM token stream ─▶ sentence splitter ─▶ check(sentence, sources) ─▶
 ```
 
 - Sentences are checked as soon as each one is complete, in parallel with generation and with each
-  other, and still spoken in order. Only the first sentence's check sits on the critical path; later
-  checks hide behind the speech before them.
-- **Hold** mode speaks a sentence only after it passes. A blocked sentence is replaced with the
-  pack's fallback line ("I'll have someone follow up"), and the rest of the turn is dropped.
-- **Speak then correct** mode adds no delay. Failures are queued, and the next turn opens with a correction.
+  other, and still spoken in order. The first sentence's check sits on the critical path; later checks
+  usually finish while earlier sentences are being spoken (the report measures any mid-turn stall).
+- **Hold** mode speaks a sentence only after it passes. A blocked sentence is replaced with a
+  configured fallback line ("I'll have someone follow up"), and the rest of the turn is dropped.
+- **Speak then correct** mode adds no delay. Failed sentences are queued (`takeCorrections()`) so the
+  next turn can open with a correction; issuing it is up to the caller of the gate.
 - A checker that errors blocks the sentence (fail closed).
 
 **Sources** at any moment means the knowledge pack, plus the caller's account facts *only once
@@ -55,6 +56,7 @@ is supported only if a tool call really logged it.
 | Rule | Where |
 |---|---|
 | Account facts don't exist for the agent until the caller confirms identity, either by a yes or by matching a field such as date of birth. A denial is permanent for the call. | `CallSession` |
+| The agent's prompt omits the call's purpose and call-specific rules until identity is confirmed, so it can't hint at the account (e.g. "she can update her card") to the wrong person. | `agentPrompt` (arena) |
 | Tools are validated server-side: no account tools before verification, each request kind at most once per call, unknown kinds rejected. | `CallSession.handleTool` |
 | After the call, an audit checks for promised callbacks nobody logged, card numbers read aloud (redacted before storage), dollar amounts not in the sources, and account details spoken before verification. | `auditCall` |
 
@@ -69,6 +71,10 @@ One entry in [`checkers.yaml`](checkers.yaml) each. Everything goes through Open
 | `flash-lite`, `gpt-5.4-nano`, `haiku-5.5` | A small LLM answers one yes/no question with a JSON schema, using minimal reasoning. |
 | `jev-1.14` | A decision model returns one probability that the sentence is supported. No text is generated. |
 | `cascade-*` | `deterministic` first. Sentences it blocks stay blocked, and sentences with nothing checkable (greetings, questions, empathy) are spoken with no model call. The rest go to the semantic checker. |
+| `*-v2`, `*-calibrated` | Tuned variants of the above: `-v2` uses the revised checker prompt, `-calibrated` uses a decision-model cutoff fitted on the tuning scenario. See [Tuning](#tuning-without-tuning-to-the-test). |
+
+All LLM checkers run with minimal reasoning, as a latency-critical check would. (Haiku was initially
+missing that setting; the reported results include the fix.)
 
 ## Study design
 
@@ -85,8 +91,9 @@ One entry in [`checkers.yaml`](checkers.yaml) each. Everything goes through Open
    upset. This is text mode; every agent sentence is recorded with the sources that held at that moment.
 3. **Reference labels.** Two models from different families, neither a contender, label each
    sentence independently. Agreement becomes the reference, and disagreement is marked *uncertain*
-   and left out of every rate. A `review.jsonl` file of hand labels overrides them. **These are model
-   labels, not human ground truth**, and each report says how many were reviewed by hand.
+   and left out of every rate. A `review.jsonl` file of reviewed labels overrides them, each naming
+   its reviewer (human, or AI-assisted). **These are model labels, not human ground truth**, and each
+   report says how many labels were overridden and by whom.
 4. **Planted errors.** Natural errors are rare, so known-bad sentences are added:
    - **Changed numbers** are made mechanically, and the new value is checked to be absent from the sources.
    - **Changed meanings** are written by a model. Both labelers re-check them, and any rewrite they
@@ -99,11 +106,11 @@ One entry in [`checkers.yaml`](checkers.yaml) each. Everything goes through Open
    - delay before the first word (p50/p95)
    - mid-turn stalls, from a timing model of streamed speech
    - cost per call
-6. **Picks, by fixed rules** (`recommend.ts`, no LLM involved):
+6. **Picks, by fixed rules** (`recommend.ts`, no LLM involved), on held-out scenarios only:
    1. A checker is eligible if it blocks at most 5% of correct sentences and adds at most 300 ms p95 before the first word.
    2. The leader is the eligible checker that catches the most.
    3. Checkers not significantly different from the leader (exact McNemar test on paired catches, p ≥ 0.05) are tied with it.
-   4. The cheapest of the tied checkers is the pick.
+   4. The cheapest of the tied checkers is the pick (then the fastest).
 
    The same report always gives the same answer.
 
@@ -123,8 +130,10 @@ overstate it. The rules (fixed in [`study.yaml`](study.yaml) and the code, befor
   rate on the tuning scenario's correct sentences stays within the 5% limit
   ([`calibrate.ts`](packages/arena/src/calibrate.ts)), then freezes it in `calibration.json`. Yes/no LLM
   checkers have no such knob.
-- **Labels never move.** Labelers keep the original support rules whatever the checkers use, so tuning
-  can't redefine what counts as correct.
+- **Labels never move with tuning.** Labelers keep the original support rules whatever the checkers
+  use, so tuning can't redefine what counts as correct. One tuning-scenario label was corrected by an
+  AI-assisted review (an appointment reminder fully backed by the caller's facts, labeled supported
+  elsewhere); it is recorded with its reviewer in `review.jsonl`. Held-out labels are untouched.
 - **Rules-checker fixes must be generic.** Two were found on the tuning scenario: a date's day read as a
   count ("September 18 visit"), and refusals ("please don't read your card number") tripping forbidden
   phrases. A Northwind-specific rule written earlier, after seeing Northwind data, was removed for the
@@ -150,8 +159,8 @@ npm run arena -- snapshot            # copy into snapshots/ and update the block
 ```
 
 Every API response is cached on disk, keyed by the exact request, so reruns only pay for what's new.
-Each command stops at `budget_usd` of uncached spend. A full run over both public packs costs
-about $1–2.
+Each command stops at `budget_usd` of uncached spend. The full study over both public packs, all 18
+checkers included, cost under $1.
 
 ## Web interface
 
@@ -160,8 +169,10 @@ cd web && npm ci && npm run build && cd ..
 npm run arena -- serve               # http://127.0.0.1:8004
 ```
 
-- **Results:** the finding, errors caught against delay and against cost (with the latency budget
-  marked), every checker's numbers, and the fixed-rule picks.
+- **Results:** the question and answer in plain English, a "how to read this page" glossary, errors
+  caught against delay and against cost (with the latency budget marked), one comparison table with
+  a verdict per approach (tuned variants and detail columns behind toggles), "Did tuning help?"
+  (tuning scenario vs. held out), what callers would hear, and the statistics behind the pick.
 - **Calls:** each simulated transcript, with every agent sentence marked by its reference label and
   the selected checker's verdict, and a per-turn timeline of checks, added silence and speech.
 - **Sentences:** every natural and planted sentence against every checker. Filters show misses,
@@ -173,6 +184,9 @@ Browsing never calls a model. Paid checks in the playground need an explicit tog
 `OPENROUTER_API_KEY` in `.env`. Frontend development: `npm run dev` in `web/` (port 5177, proxies `/api`).
 
 ## Using the gate in your own pipeline
+
+`speech-gate` is a workspace package in this repo, not published to npm; copy or link
+`packages/speech-gate`.
 
 ```ts
 import { CallSession, CascadeChecker, DeterministicChecker, DecisionChecker,
@@ -195,19 +209,32 @@ for await (const event of gate.run(llmTokenStream, { sources: session.sources() 
 ## Adding a scenario or a checker
 
 - **Scenario:** add `packs/<id>/pack.yaml` and `knowledge.md` (copy an existing pack). Nothing else changes.
-- **Private scenario:** put it in `packs-private/<id>/`, which is gitignored. Its data, reports and
-  snapshots stay inside that folder, and private packs only run when named (`--packs <id>`).
+- **Private scenario:** put it in `packs-private/<id>/`, which is gitignored. Its generated data stays
+  in that folder, snapshots of reports that include it go to `packs-private/snapshots/`, and private
+  packs only run when named (`--packs <id>`). (`reports/` is gitignored too.)
+- **Playground examples:** an optional `playground: { sentence, turn }` in `pack.yaml`.
 - **Checker:** add an entry to `checkers.yaml`. A new *kind* is a class implementing `Checker`
   (`check(input) → Verdict`).
 
 ## Layout
 
+Two packages, so the guardrail can be reused without the experiment around it:
+
+- **`packages/speech-gate/`: the guardrail itself.** A small library you'd put inside a voice agent:
+  splits the agent's text into sentences, checks each one, decides speak or block. It also has the
+  identity check and the after-call audit. Nothing in it is about experiments.
+- **`packages/arena/`: the test lab around it.** Simulates calls, plants errors, gets labels, runs
+  every checker, scores them, writes reports and serves the web UI. It is the `npm run arena`
+  command.
+
 | Path | What it is |
 |---|---|
-| `packages/speech-gate/` | The library: sentence splitter, claim extraction, checkers, streaming gate, call session, audit |
-| `packages/arena/` | CLI, call simulator, planted errors, labels, runner, metrics, fixed-rule picks, report |
+| `packages/speech-gate/` | The guardrail library: sentence splitter, claim extraction, checkers, streaming gate, call session, audit |
+| `packages/arena/` | The test lab: CLI, call simulator, planted errors, labels, runner, metrics, fixed-rule picks, reports, web server |
 | `packs/` | Public synthetic scenarios and their generated data |
+| `web/` | The local web UI (React + Vite) served by `arena serve` |
 | `study.yaml`, `checkers.yaml` | Frozen study settings and the contenders |
+| `calibration.json` | Decision-model cutoffs fitted on the tuning scenario, frozen for every other run |
 | `snapshots/` | Dated results; the block at the top points to the latest |
 
 ## Caveats
@@ -217,7 +244,15 @@ for await (const event of gate.run(llmTokenStream, { sources: session.sources() 
 - Latency is API time per check, measured from one location under this run's concurrency, combined
   with a timing model of streamed speech. It is not measured on a phone line.
 - Reference labels are model-made. Excluding disagreements removes the hardest cases, which flatters every checker.
-- Planted errors show what a checker *can* catch, not how often agents make that mistake.
+- Planted errors show what a checker *can* catch, not how often agents make that mistake. The agent
+  rarely erred on its own (4 natural errors in the held-out scenario), so catch rates mostly reflect
+  planted errors.
+- One held-out scenario. A first, exploratory run on a larger private scenario (a gym retention call
+  with a long rulebook) found the same speed picture but more over-blocking: rules → Jev wrongly held
+  about 6% of correct sentences, above the 5% limit, with noisy labels. Treat the pick as holding for
+  simple knowledge packs.
+- Fitted cutoffs and the revised prompt gained less on held-out data than on the tuning scenario;
+  the fitted Jev cutoff blocked more correct sentences on held-out data than the default.
 - The deterministic checker's claim extraction is English-only and pattern-based. It knows prices,
   percentages, clock times, dates and counted quantities, nothing else.
 
