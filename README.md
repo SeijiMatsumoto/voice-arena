@@ -1,143 +1,75 @@
 # Voice Arena
 
-Measured answers to the engineering questions behind production voice agents: quality, latency and
-cost together, on realistic simulated calls rather than demos.
+**Experiments on how to make AI phone agents safe and fast enough for real customers.**
 
-| Study | Question | Answer |
+Companies use AI voice agents to call customers: appointment reminders, overdue bills, membership
+offers. These agents are large language models that turn text into speech as they go, which raises
+practical questions: how do you stop one from saying something false, and what does that cost in
+delay and money? Each study here answers one such question by measuring it on simulated calls,
+with the method and its limits written down.
+
+| Study | Question | Short answer |
 |---|---|---|
-| **[Speech gate](#study-1-speech-gate)** (2026-10-29) | Can an agent check each sentence against its sources before the caller hears it, and what does that cost in delay? | Fast and cheap enough, but its value on real mistakes is unproven. Free rules plus a fast decision model (Jev), only on sentences with something to check (`cascade-jev`), stopped 90% of wrong sentences on a held-out scenario, mostly planted ones, wrongly held 2.6% of correct ones, and added 161 ms; LLM judges added 0.7–1.4 s. The agent was already right ~97% of the time, and the check stopped 1 of its 4 real mistakes. [Full report](snapshots/2026-10-29T18-11-07-063Z/README.md). |
+| [1. Checking before speaking](#study-1-checking-before-speaking) | Can an agent's sentences be checked against the company's information before the caller hears them, without slowing the call? | Fast and cheap enough, yes. Worth it on real mistakes, not yet shown. |
 
-The pieces shared across studies are scenario packs, simulated callers, the call session (identity
-check, tool validation), after-call audits, cached and budgeted model access, and fixed-rule picks.
-A new study reuses all of them.
+## Study 1: Checking before speaking
 
-## Study 1: speech gate
+**The question.** An AI agent occasionally states something its sources don't support: a fee that
+doesn't exist, an invented policy. Checking every sentence before it is spoken would stop that, but
+each check adds silence to the call, and a check that is too strict replaces correct answers with
+"someone will follow up." Is there a check that is accurate, fast and cheap enough for live calls?
+Two limits were set before any results: it may wrongly stop at most 5% of correct sentences, and add
+at most 300 ms of silence before the agent starts speaking.
+
+**How it was tested.** An AI agent held 42 simulated phone calls for two made-up businesses (a
+dental office and an internet provider) with AI "customers" of seven kinds, from cooperative to upset.
+Every sentence the agent said, plus known-wrong sentences planted on purpose, was run through each
+candidate check: plain rules, general AI models, a fast "decision model" (Jev), and combinations.
+Settings were tuned on one business and the results measured on the other.
+
+### What it found
 
 <!-- snapshot:start -->
-On 42 unsupported sentences (4 natural, 38 planted) across 1 held-out scenario, cascade-jev caught 90% while blocking 2.6% of correct sentences, adding 161 ms p95 before the first word at $0.22 per 1,000 calls. Ignoring the limits, cascade-jev-calibrated caught the most (93%), not a significant difference.
+The best approach, **Rules, then Jev**, stopped **90%** of wrong sentences while wrongly stopping **2.6%** of correct ones, and added **161 ms** of silence before the agent speaks, at about **$0.22 per 1,000 calls**. Asking a general AI model to check every sentence caught a similar share but added 0.7–1.4 seconds of silence, too slow for a phone call.
 
-[Latest snapshot](snapshots/2026-10-29T18-11-07-063Z/README.md)
+**So the check is fast and cheap enough to run on every call. Whether it is worth turning on is less clear.** The agent was already right about 97% of the time (4 wrong statements in 158 sentences), and of those 4 real mistakes the check stopped 1, while wrongly holding back 4 correct sentences. Most of its 90% comes from mistakes planted for the test. When an agent rarely errs, even a small rate of wrongly stopped sentences interrupts callers about as often as it saves them, so a check like this pays off where a single wrong statement is costly (fees, refunds, promises), and its value on real mistakes still needs measuring.
+
+| Approach | Wrong sentences stopped | Correct sentences wrongly stopped | Extra silence before speaking | Cost per 1,000 calls | Meets both limits? |
+|---|---|---|---|---|---|
+| No check | 0% (0 of 42) | 0% (0 of 154) | 0 ms | $0.00 | baseline |
+| Rules only | 62% (26 of 42) | 0.6% (1 of 154) | 0 ms | $0.00 | yes |
+| Gemini Flash-Lite on every sentence | 81% (34 of 42) | 1.3% (2 of 154) | 1018 ms | $2.12 | too slow |
+| GPT-5.4 nano on every sentence | 93% (39 of 42) | 15% (23 of 154) | 697 ms | $2.08 | stops too many correct sentences; too slow |
+| Claude Haiku on every sentence | 88% (37 of 42) | 9.7% (15 of 154) | 1378 ms | $1.27 | stops too many correct sentences; too slow |
+| Jev on every sentence | 86% (36 of 42) | 4.5% (7 of 154) | 177 ms | $0.43 | yes |
+| Rules, then Gemini Flash-Lite | 88% (37 of 42) | 0.6% (1 of 154) | 828 ms | $1.06 | too slow |
+| **Rules, then Jev** | 90% (38 of 42) | 2.6% (4 of 154) | 161 ms | $0.22 | yes |
+
+Measured on Northwind Fiber (past-due bill). Silence is for the slowest 5% of agent turns.
+
+**[Read the full report](snapshots/2026-10-29T18-11-07-063Z/README.md)**: the problem, how the experiment worked, every finding, limitations and next steps.
 <!-- snapshot:end -->
 
-A phone agent's words are heard as soon as they're generated. Unless something checks the text
-between the model and the voice, a wrong fee or an invented policy reaches the caller, and the only
-defense is the prompt. Managed platforms can host such a check (e.g. by routing the model through
-your own endpoint); this study runs it inside its own orchestration, where every step is visible
-and controllable, and measures it: which checkers catch unsupported sentences, how many correct
-sentences they wrongly stop, how much silence they add, and what they cost.
-
-The gate is a standalone TypeScript package, [`speech-gate`](packages/speech-gate), with no
-dependency on any voice framework. The arena is the harness that evaluates it.
-
-## How the gate works
+### How the check works
 
 ```
-LLM token stream ─▶ sentence splitter ─▶ check(sentence, sources) ─▶ voice
-                         │                    (runs as soon as each
-                         │                     sentence is complete,
-                         └─ next sentence ─▶   in parallel)
+agent's words ─▶ split into sentences ─▶ check each one against ─▶ speak it, or replace it with
+  (streamed)                             the company's information  "I'll have someone follow up"
 ```
 
-- Sentences are checked as soon as each one is complete, in parallel with generation and with each
-  other, and still spoken in order. The first sentence's check sits on the critical path; later checks
-  usually finish while earlier sentences are being spoken (the report measures any mid-turn stall).
-- **Hold** mode speaks a sentence only after it passes. A blocked sentence is replaced with a
-  configured fallback line ("I'll have someone follow up"), and the rest of the turn is dropped.
-- **Speak then correct** mode adds no delay. Failed sentences are queued (`takeCorrections()`) so the
-  next turn can open with a correction; issuing it is up to the caller of the gate.
-- A checker that errors blocks the sentence (fail closed).
+Each sentence is checked the moment it is complete, while the agent keeps generating, so usually
+only the first sentence of a reply waits. A sentence can only be "supported" by what the agent is
+actually allowed to know at that point: the company's information, the customer's account only
+after they've confirmed who they are, and actions really completed on the call.
 
-**Sources** at any moment means the knowledge pack, plus the caller's account facts *only once
-identity is confirmed*, plus the actions actually completed on this call. "I've logged that for you"
-is supported only if a tool call really logged it.
+Managed voice platforms can host a check like this too (for example, by routing the model through
+your own endpoint); here it runs in a small orchestration of its own, where every step is visible and
+timed. The check is a standalone library ([`packages/speech-gate`](packages/speech-gate)); the rest
+of the repo is the test lab that measures it.
 
-## Rules enforced in code, not the prompt
+---
 
-| Rule | Where |
-|---|---|
-| Account facts don't exist for the agent until the caller confirms identity, either by a yes or by matching a field such as date of birth. A denial is permanent for the call. | `CallSession` |
-| The agent's prompt omits the call's purpose and call-specific rules until identity is confirmed, so it can't hint at the account (e.g. "she can update her card") to the wrong person. | `agentPrompt` (lab) |
-| Tools are validated server-side: no account tools before verification, each request kind at most once per call, unknown kinds rejected. | `CallSession.handleTool` |
-| After the call, an audit checks for promised callbacks nobody logged, card numbers read aloud (redacted before storage), dollar amounts not in the sources, and account details spoken before verification. | `auditCall` |
-
-## Contenders
-
-One entry in [`checkers.yaml`](checkers.yaml) each. Everything goes through OpenRouter with one key.
-
-| Checker | What it does |
-|---|---|
-| `none` | Baseline: every sentence is spoken unchecked, as in an agent with no output check. |
-| `deterministic` | No model. Every price, time, date and counted quantity must appear in the sources. Spoken forms like "fifteen dollars" and "seven AM" are normalized first. Also blocks pack-specific forbidden phrases, account talk before verification, and claimed actions nobody took. |
-| `flash-lite`, `gpt-5.4-nano`, `haiku-5.5` | A small LLM answers one yes/no question with a JSON schema, using minimal reasoning. |
-| `jev-1.14` | A decision model returns one probability that the sentence is supported. No text is generated. |
-| `cascade-*` | `deterministic` first. Sentences it blocks stay blocked, and sentences with nothing checkable (greetings, questions, empathy) are spoken with no model call. The rest go to the semantic checker. |
-| `*-v2`, `*-calibrated` | Tuned variants of the above: `-v2` uses the revised checker prompt, `-calibrated` uses a decision-model cutoff fitted on the tuning scenario. See [Tuning](#tuning-without-tuning-to-the-test). |
-
-All LLM checkers run with minimal reasoning, as a latency-critical check would. (Haiku was initially
-missing that setting; the reported results include the fix.)
-
-## Study design
-
-[`study.yaml`](study.yaml) freezes the models, sample sizes and decision limits before any results are seen.
-
-1. **Scenarios.** Each pack has a knowledge file, the caller's account facts, an identity check,
-   allowed requests, forbidden phrases and two sets of caller questions: ones the knowledge answers,
-   and **bait** questions it deliberately doesn't. The public packs are synthetic and written for this
-   benchmark:
-   [Brightside Dental](packs/brightside-dental) (appointment reminder, date-of-birth check) and
-   [Northwind Fiber](packs/northwind-fiber) (past-due bill, yes/no check).
-2. **Simulated calls.** The agent (`gpt-5.4-mini`, with tools) talks to LLM callers playing seven
-   personas: cooperative, curious, wrong person, wants to cancel, reads out a card number, haggler,
-   upset. This is text mode; every agent sentence is recorded with the sources that held at that moment.
-3. **Reference labels.** Two models from different families, neither a contender, label each
-   sentence independently. Agreement becomes the reference, and disagreement is marked *uncertain*
-   and left out of every rate. A `review.jsonl` file of reviewed labels overrides them, each naming
-   its reviewer (human, or AI-assisted). **These are model labels, not human ground truth**, and each
-   report says how many labels were overridden and by whom.
-4. **Planted errors.** Natural errors are rare, so known-bad sentences are added:
-   - **Changed numbers** are made mechanically, and the new value is checked to be absent from the sources.
-   - **Changed meanings** are written by a model. Both labelers re-check them, and any rewrite they
-     both find supported is excluded.
-
-   Planted errors are reported separately and never presented as how often agents make mistakes.
-5. **Measures.** All are reported per checker, per scenario and pooled:
-   - catch rate on natural errors and on each kind of planted error
-   - false-block rate on correct sentences, with 95% Wilson intervals
-   - delay before the first word (p50/p95)
-   - mid-turn stalls, from a timing model of streamed speech
-   - cost per call
-6. **Picks, by fixed rules** (`recommend.ts`, no LLM involved), on held-out scenarios only:
-   1. A checker is eligible if it blocks at most 5% of correct sentences and adds at most 300 ms p95 before the first word.
-   2. The leader is the eligible checker that catches the most.
-   3. Checkers not significantly different from the leader (exact McNemar test on paired catches, p ≥ 0.05) are tied with it.
-   4. The cheapest of the tied checkers is the pick (then the fastest).
-
-   The same report always gives the same answer.
-
-## Tuning, without tuning to the test
-
-Untuned prompts understate what a checker can do; prompts tuned on the same calls they're scored on
-overstate it. The rules (fixed in [`study.yaml`](study.yaml) and the code, before any tuned results):
-
-- **Tuning scenario vs. held out.** Prompts are revised and cutoffs fitted on `tune_packs`
-  (Brightside Dental) only. Picks and the headline come from the other scenarios. Tuning-scenario
-  numbers are shown in their own section, labeled as flattering.
-- **One revision per version, for every model checker at once.** `prompt: v2` is a single wording
-  shared by all LLM and decision-model checkers, written to fix failure *types* seen on the tuning
-  scenario, never individual sentences. v1 stays in the table, so the gain (or the lack of one) is
-  visible.
-- **Decision-model cutoffs by rule.** `threshold: calibrated` picks the highest cutoff whose false-block
-  rate on the tuning scenario's correct sentences stays within the 5% limit
-  ([`calibrate.ts`](packages/lab/src/calibrate.ts)), then freezes it in `calibration.json`. Yes/no LLM
-  checkers have no such knob.
-- **Labels never move with tuning.** Labelers keep the original support rules whatever the checkers
-  use, so tuning can't redefine what counts as correct. One tuning-scenario label was corrected by an
-  AI-assisted review (an appointment reminder fully backed by the caller's facts, labeled supported
-  elsewhere); it is recorded with its reviewer in `review.jsonl`. Held-out labels are untouched.
-- **Rules-checker fixes must be generic.** Two were found on the tuning scenario: a date's day read as a
-  count ("September 18 visit"), and refusals ("please don't read your card number") tripping forbidden
-  phrases. A Northwind-specific rule written earlier, after seeing Northwind data, was removed for the
-  same reason.
+# For developers
 
 ## Running it
 
@@ -237,6 +169,116 @@ Two packages, so the guardrail can be reused without the experiment around it:
 | `calibration.json` | Decision-model cutoffs fitted on the tuning scenario, frozen for every other run |
 | `snapshots/` | Dated results; the block at the top points to the latest |
 
+## Gate mechanics
+
+```
+LLM token stream ─▶ sentence splitter ─▶ check(sentence, sources) ─▶ voice
+                         │                    (runs as soon as each
+                         │                     sentence is complete,
+                         └─ next sentence ─▶   in parallel)
+```
+
+- Sentences are checked as soon as each one is complete, in parallel with generation and with each
+  other, and still spoken in order. The first sentence's check sits on the critical path; later checks
+  usually finish while earlier sentences are being spoken (the report measures any mid-turn stall).
+- **Hold** mode speaks a sentence only after it passes. A blocked sentence is replaced with a
+  configured fallback line ("I'll have someone follow up"), and the rest of the turn is dropped.
+- **Speak then correct** mode adds no delay. Failed sentences are queued (`takeCorrections()`) so the
+  next turn can open with a correction; issuing it is up to the caller of the gate.
+- A checker that errors blocks the sentence (fail closed).
+
+**Sources** at any moment means the knowledge pack, plus the caller's account facts *only once
+identity is confirmed*, plus the actions actually completed on this call. "I've logged that for you"
+is supported only if a tool call really logged it.
+
+## Contenders (by config name)
+
+One entry in [`checkers.yaml`](checkers.yaml) each. Everything goes through OpenRouter with one key.
+
+| Checker | What it does |
+|---|---|
+| `none` | Baseline: every sentence is spoken unchecked, as in an agent with no output check. |
+| `deterministic` | No model. Every price, time, date and counted quantity must appear in the sources. Spoken forms like "fifteen dollars" and "seven AM" are normalized first. Also blocks pack-specific forbidden phrases, account talk before verification, and claimed actions nobody took. |
+| `flash-lite`, `gpt-5.4-nano`, `haiku-5.5` | A small LLM answers one yes/no question with a JSON schema, using minimal reasoning. |
+| `jev-1.14` | A decision model returns one probability that the sentence is supported. No text is generated. |
+| `cascade-*` | `deterministic` first. Sentences it blocks stay blocked, and sentences with nothing checkable (greetings, questions, empathy) are spoken with no model call. The rest go to the semantic checker. |
+| `*-v2`, `*-calibrated` | Tuned variants of the above: `-v2` uses the revised checker prompt, `-calibrated` uses a decision-model cutoff fitted on the tuning scenario. See [Tuning](#tuning-without-tuning-to-the-test). |
+
+All LLM checkers run with minimal reasoning, as a latency-critical check would. (Haiku was initially
+missing that setting; the reported results include the fix.)
+
+## Rules enforced in code, not the prompt
+
+| Rule | Where |
+|---|---|
+| Account facts don't exist for the agent until the caller confirms identity, either by a yes or by matching a field such as date of birth. A denial is permanent for the call. | `CallSession` |
+| The agent's prompt omits the call's purpose and call-specific rules until identity is confirmed, so it can't hint at the account (e.g. "she can update her card") to the wrong person. | `agentPrompt` (lab) |
+| Tools are validated server-side: no account tools before verification, each request kind at most once per call, unknown kinds rejected. | `CallSession.handleTool` |
+| After the call, an audit checks for promised callbacks nobody logged, card numbers read aloud (redacted before storage), dollar amounts not in the sources, and account details spoken before verification. | `auditCall` |
+
+## Method details
+
+[`study.yaml`](study.yaml) freezes the models, sample sizes and decision limits before any results are seen.
+
+1. **Scenarios.** Each pack has a knowledge file, the caller's account facts, an identity check,
+   allowed requests, forbidden phrases and two sets of caller questions: ones the knowledge answers,
+   and **bait** questions it deliberately doesn't. The public packs are synthetic and written for this
+   benchmark:
+   [Brightside Dental](packs/brightside-dental) (appointment reminder, date-of-birth check) and
+   [Northwind Fiber](packs/northwind-fiber) (past-due bill, yes/no check).
+2. **Simulated calls.** The agent (`gpt-5.4-mini`, with tools) talks to LLM callers playing seven
+   personas: cooperative, curious, wrong person, wants to cancel, reads out a card number, haggler,
+   upset. This is text mode; every agent sentence is recorded with the sources that held at that moment.
+3. **Reference labels.** Two models from different families, neither a contender, label each
+   sentence independently. Agreement becomes the reference, and disagreement is marked *uncertain*
+   and left out of every rate. A `review.jsonl` file of reviewed labels overrides them, each naming
+   its reviewer (human, or AI-assisted). **These are model labels, not human ground truth**, and each
+   report says how many labels were overridden and by whom.
+4. **Planted errors.** Natural errors are rare, so known-bad sentences are added:
+   - **Changed numbers** are made mechanically, and the new value is checked to be absent from the sources.
+   - **Changed meanings** are written by a model. Both labelers re-check them, and any rewrite they
+     both find supported is excluded.
+
+   Planted errors are reported separately and never presented as how often agents make mistakes.
+5. **Measures.** All are reported per checker, per scenario and pooled:
+   - catch rate on natural errors and on each kind of planted error
+   - false-block rate on correct sentences, with 95% Wilson intervals
+   - delay before the first word (p50/p95)
+   - mid-turn stalls, from a timing model of streamed speech
+   - cost per call
+6. **Picks, by fixed rules** (`recommend.ts`, no LLM involved), on held-out scenarios only:
+   1. A checker is eligible if it blocks at most 5% of correct sentences and adds at most 300 ms p95 before the first word.
+   2. The leader is the eligible checker that catches the most.
+   3. Checkers not significantly different from the leader (exact McNemar test on paired catches, p ≥ 0.05) are tied with it.
+   4. The cheapest of the tied checkers is the pick (then the fastest).
+
+   The same report always gives the same answer.
+
+## Tuning, without tuning to the test
+
+Untuned prompts understate what a checker can do; prompts tuned on the same calls they're scored on
+overstate it. The rules (fixed in [`study.yaml`](study.yaml) and the code, before any tuned results):
+
+- **Tuning scenario vs. held out.** Prompts are revised and cutoffs fitted on `tune_packs`
+  (Brightside Dental) only. Picks and the headline come from the other scenarios. Tuning-scenario
+  numbers are shown in their own section, labeled as flattering.
+- **One revision per version, for every model checker at once.** `prompt: v2` is a single wording
+  shared by all LLM and decision-model checkers, written to fix failure *types* seen on the tuning
+  scenario, never individual sentences. v1 stays in the table, so the gain (or the lack of one) is
+  visible.
+- **Decision-model cutoffs by rule.** `threshold: calibrated` picks the highest cutoff whose false-block
+  rate on the tuning scenario's correct sentences stays within the 5% limit
+  ([`calibrate.ts`](packages/lab/src/calibrate.ts)), then freezes it in `calibration.json`. Yes/no LLM
+  checkers have no such knob.
+- **Labels never move with tuning.** Labelers keep the original support rules whatever the checkers
+  use, so tuning can't redefine what counts as correct. One tuning-scenario label was corrected by an
+  AI-assisted review (an appointment reminder fully backed by the caller's facts, labeled supported
+  elsewhere); it is recorded with its reviewer in `review.jsonl`. Held-out labels are untouched.
+- **Rules-checker fixes must be generic.** Two were found on the tuning scenario: a date's day read as a
+  count ("September 18 visit"), and refusals ("please don't read your card number") tripping forbidden
+  phrases. A Northwind-specific rule written earlier, after seeing Northwind data, was removed for the
+  same reason.
+
 ## Caveats
 
 - Callers are LLMs playing personas. Real callers add speech-recognition errors, interruptions and
@@ -256,7 +298,7 @@ Two packages, so the guardrail can be reused without the experiment around it:
 - The deterministic checker's claim extraction is English-only and pattern-based. It knows prices,
   percentages, clock times, dates and counted quantities, nothing else.
 
-## Not yet
+## Not yet built
 
 Within the speech-gate study:
 

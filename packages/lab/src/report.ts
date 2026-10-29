@@ -48,14 +48,19 @@ export function renderReport(all: Results, rec: Recommendation): string {
   if (all.mock) out.push("> **MOCK DATA.** Offline stand-in models. These numbers test the pipeline and say nothing about real checkers.", "");
 
   // ---------------------------------------------------------------- Summary
-  out.push("## Summary", "");
+  out.push(
+    "## Summary",
+    "",
+    "AI phone agents sometimes state things that aren't true: a wrong fee, an invented policy. This study tested ways to check each sentence before the caller hears it.",
+    "",
+    "<!-- summary:start -->",
+  );
   // The agent's own error rate among labeled natural sentences: the base rate a check works against.
   const labeled = naturalHeld.filter((i) => i.reference !== "uncertain").length;
   const errRate = labeled ? naturalBadHeld / labeled : NaN;
   if (pick) {
     out.push(
-      `AI phone agents sometimes state things that aren't true: a wrong fee, an invented policy. This study tested ways to check each sentence before the caller hears it. ` +
-        `The best approach, **${name(pick.checker)}**, stopped **${pct(pick.caught.all.rate)}** of wrong sentences while wrongly stopping **${pct(pick.falseBlock.rate)}** of correct ones, ` +
+      `The best approach, **${name(pick.checker)}**, stopped **${pct(pick.caught.all.rate)}** of wrong sentences while wrongly stopping **${pct(pick.falseBlock.rate)}** of correct ones, ` +
         `and added **${Math.round(pick.firstAudio.p95)} ms** of silence before the agent speaks, at about **$${(pick.costPerCall * 1000).toFixed(2)} per 1,000 calls**. ` +
         (judges.length
           ? `Asking a general AI model to check every sentence caught a similar share but added ${range(judges.map((m) => m.firstAudio.p95 / 1000), (x) => `${x.toFixed(1)}`)} seconds of silence, too slow for a phone call.`
@@ -72,6 +77,7 @@ export function renderReport(all: Results, rec: Recommendation): string {
   }
 
   // ---------------------------------------------------------------- Problem
+  out.push("<!-- summary:end -->", "");
   out.push(
     "## The problem",
     "",
@@ -125,7 +131,7 @@ export function renderReport(all: Results, rec: Recommendation): string {
   );
 
   // ---------------------------------------------------------------- Findings
-  out.push("## Findings", "");
+  out.push("## Findings", "", "<!-- table:start -->");
   out.push(
     table(
       ["Approach", "Wrong sentences stopped", "Correct sentences wrongly stopped", "Extra silence before speaking", "Cost per 1,000 calls", "Meets both limits?"],
@@ -140,6 +146,7 @@ export function renderReport(all: Results, rec: Recommendation): string {
     ),
     "",
     `Measured on ${heldTitles.join(" and ")}. Silence is for the slowest 5% of agent turns.`,
+    "<!-- table:end -->",
     "",
   );
 
@@ -379,4 +386,12 @@ function renderAppendix(all: Results, rec: Recommendation): string {
     "",
   );
   return out.join("\n");
+}
+
+/** The repo README's results block: the report's plain summary and results table, plus a link. */
+export function readmeBlock(report: string, link: string): string {
+  const section = (name: string) => report.split(`<!-- ${name}:start -->`)[1]?.split(`<!-- ${name}:end -->`)[0]?.trim() ?? "";
+  return [section("summary"), section("table"), `**[Read the full report](${link})**: the problem, how the experiment worked, every finding, limitations and next steps.`]
+    .filter(Boolean)
+    .join("\n\n");
 }

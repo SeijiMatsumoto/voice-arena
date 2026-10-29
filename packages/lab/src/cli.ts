@@ -1,5 +1,5 @@
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { dataDir, listPacks, loadCheckers, loadStudy, ROOT, selectPacks } from "./config.js";
 import { Gateway, pool } from "./gateway.js";
@@ -8,7 +8,7 @@ import { labelSentences } from "./label.js";
 import { selectPersonas } from "./personas.js";
 import { plantErrors } from "./plant.js";
 import { recommend } from "./recommend.js";
-import { renderReport } from "./report.js";
+import { readmeBlock, renderReport } from "./report.js";
 import { runCheckers, type Results } from "./runner.js";
 import { serve } from "./server.js";
 import { simulateCall, type SentenceRecord } from "./simulate.js";
@@ -186,13 +186,15 @@ async function main(): Promise<void> {
       const base = isPrivate ? join(ROOT, "packs-private", "snapshots") : join(ROOT, "snapshots");
       const dest = join(base, results.createdAt.replace(/[:.]/g, "-"));
       mkdirSync(dest, { recursive: true });
-      cpSync(join(src, "results.json"), join(dest, "results.json"));
-      cpSync(join(src, "report.md"), join(dest, "README.md"));
+      // Re-snapshotting a snapshot (to pick up report-format changes) leaves its results in place.
+      if (resolve(src) !== resolve(dest)) cpSync(join(src, "results.json"), join(dest, "results.json"));
+      const rec = recommend(results);
+      const report = renderReport(results, rec);
+      writeFileSync(join(dest, "README.md"), report);
       if (!isPrivate) {
         const readme = join(ROOT, "README.md");
-        const rec = recommend(results);
         const rel = dest.slice(ROOT.length + 1);
-        const block = `<!-- snapshot:start -->\n${rec.finding}\n\n[Latest snapshot](${rel}/README.md)\n<!-- snapshot:end -->`;
+        const block = `<!-- snapshot:start -->\n${readmeBlock(report, `${rel}/README.md`)}\n<!-- snapshot:end -->`;
         writeFileSync(readme, readFileSync(readme, "utf8").replace(/<!-- snapshot:start -->[\s\S]*<!-- snapshot:end -->/, block));
       }
       console.log(`snapshot: ${dest}${isPrivate ? " (private)" : ""}`);

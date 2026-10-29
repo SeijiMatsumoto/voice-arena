@@ -2,9 +2,14 @@
 
 ## Summary
 
-AI phone agents sometimes state things that aren't true: a wrong fee, an invented policy. This study tested ways to check each sentence before the caller hears it. The best approach, **Rules, then Jev**, stopped **90%** of wrong sentences while wrongly stopping **2.6%** of correct ones, and added **161 ms** of silence before the agent speaks, at about **$0.22 per 1,000 calls**. Asking a general AI model to check every sentence caught a similar share but added 0.7–1.4 seconds of silence, too slow for a phone call.
+AI phone agents sometimes state things that aren't true: a wrong fee, an invented policy. This study tested ways to check each sentence before the caller hears it.
+
+<!-- summary:start -->
+The best approach, **Rules, then Jev**, stopped **90%** of wrong sentences while wrongly stopping **2.6%** of correct ones, and added **161 ms** of silence before the agent speaks, at about **$0.22 per 1,000 calls**. Asking a general AI model to check every sentence caught a similar share but added 0.7–1.4 seconds of silence, too slow for a phone call.
 
 **So the check is fast and cheap enough to run on every call. Whether it is worth turning on is less clear.** The agent was already right about 97% of the time (4 wrong statements in 158 sentences), and of those 4 real mistakes the check stopped 1, while wrongly holding back 4 correct sentences. Most of its 90% comes from mistakes planted for the test. When an agent rarely errs, even a small rate of wrongly stopped sentences interrupts callers about as often as it saves them, so a check like this pays off where a single wrong statement is costly (fees, refunds, promises), and its value on real mistakes still needs measuring.
+
+<!-- summary:end -->
 
 ## The problem
 
@@ -41,6 +46,7 @@ The winner is chosen by a fixed rule written before the results: among approache
 
 ## Findings
 
+<!-- table:start -->
 | Approach | Wrong sentences stopped | Correct sentences wrongly stopped | Extra silence before speaking | Cost per 1,000 calls | Meets both limits? |
 |---|---|---|---|---|---|
 | No check | 0% (0 of 42) | 0% (0 of 154) | 0 ms | $0.00 | baseline |
@@ -53,6 +59,7 @@ The winner is chosen by a fixed rule written before the results: among approache
 | **Rules, then Jev** | 90% (38 of 42) | 2.6% (4 of 154) | 161 ms | $0.22 | yes |
 
 Measured on Northwind Fiber (past-due bill). Silence is for the slowest 5% of agent turns.
+<!-- table:end -->
 
 **1. A pre-speech check can be fast and cheap enough for live calls.** Rules, then Jev met both limits: it stopped 38 of 42 wrong sentences, wrongly stopped 4 of 154 correct ones, and added 161 ms. Only 48% of sentences needed the model at all; the rest were greetings, questions and other sentences with nothing to check.
 
