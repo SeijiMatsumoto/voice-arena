@@ -60,16 +60,9 @@ export function renderReport(all: Results, rec: Recommendation): string {
   const errRate = labeled ? naturalBadHeld / labeled : NaN;
   if (pick) {
     out.push(
-      `The best approach, **${name(pick.checker)}**, stopped **${pct(pick.caught.all.rate)}** of wrong sentences while wrongly stopping **${pct(pick.falseBlock.rate)}** of correct ones, ` +
-        `and added **${Math.round(pick.firstAudio.p95)} ms** of silence before the agent speaks, at about **$${(pick.costPerCall * 1000).toFixed(2)} per 1,000 calls**. ` +
-        (judges.length
-          ? `Asking a general AI model to check every sentence caught a similar share but added ${range(judges.map((m) => m.firstAudio.p95 / 1000), (x) => `${x.toFixed(1)}`)} seconds of silence, too slow for a phone call.`
-          : ""),
-      "",
-      `**So the check is fast and cheap enough to run on every call. Whether it is worth turning on is less clear.** ` +
-        `The agent was already right about ${pct(1 - errRate)} of the time (${naturalBadHeld} wrong statements in ${labeled} sentences), and of those ${naturalBadHeld} real mistakes the check stopped ${pick.caught.natural.k}, ` +
-        `while wrongly holding back ${pick.falseBlock.k} correct sentences. Most of its ${pct(pick.caught.all.rate)} comes from mistakes planted for the test. ` +
-        `When an agent rarely errs, even a small rate of wrongly stopped sentences interrupts callers about as often as it saves them, so a check like this pays off where a single wrong statement is costly (fees, refunds, promises), and its value on real mistakes still needs measuring.`,
+      `- **Fast and cheap enough.** ${name(pick.checker)} stopped ${pct(pick.caught.all.rate)} of wrong sentences, wrongly stopped ${pct(pick.falseBlock.rate)} of correct ones, and added ${Math.round(pick.firstAudio.p95)} ms of silence, at $${(pick.costPerCall * 1000).toFixed(2)} per 1,000 calls.`,
+      ...(judges.length ? [`- **General AI models are too slow.** Checking every sentence with one added ${range(judges.map((m) => m.firstAudio.p95 / 1000), (x) => x.toFixed(1))} s of silence.`] : []),
+      `- **Value on real mistakes is unproven.** The agent was already right ${pct(1 - errRate)} of the time. Of its ${naturalBadHeld} real mistakes, the check stopped ${pick.caught.natural.k}, and it wrongly held ${pick.falseBlock.k} correct sentences; most of the ${pct(pick.caught.all.rate)} comes from planted mistakes. Best aimed at costly claims (fees, refunds, promises).`,
       "",
     );
   } else {
@@ -134,18 +127,18 @@ export function renderReport(all: Results, rec: Recommendation): string {
   out.push("## Findings", "", "<!-- table:start -->");
   out.push(
     table(
-      ["Approach", "Wrong sentences stopped", "Correct sentences wrongly stopped", "Extra silence before speaking", "Cost per 1,000 calls", "Meets both limits?"],
+      ["Approach", "Wrong stopped", "Correct wrongly stopped", "Added silence", "Cost / 1k calls", "Within limits?"],
       base.map((m) => [
         m.checker === pick?.checker ? `**${name(m.checker)}**` : name(m.checker),
-        `${pct(m.caught.all.rate)} (${m.caught.all.k} of ${m.caught.all.n})`,
-        `${pct(m.falseBlock.rate)} (${m.falseBlock.k} of ${m.falseBlock.n})`,
+        pct(m.caught.all.rate),
+        pct(m.falseBlock.rate),
         `${Math.round(m.firstAudio.p95)} ms`,
         `$${(m.costPerCall * 1000).toFixed(2)}`,
-        m.checker === "none" ? "baseline" : meets(m) ? "yes" : [m.falseBlock.rate > study.max_false_block_rate && "stops too many correct sentences", m.firstAudio.p95 > study.latency_budget_ms && "too slow"].filter(Boolean).join("; "),
+        m.checker === "none" ? "—" : meets(m) ? "yes" : [m.falseBlock.rate > study.max_false_block_rate && "too strict", m.firstAudio.p95 > study.latency_budget_ms && "too slow"].filter(Boolean).join(", "),
       ]),
     ),
     "",
-    `Measured on ${heldTitles.join(" and ")}. Silence is for the slowest 5% of agent turns.`,
+    `A model alone checks every sentence; "Rules →" sends it only sentences with something to check. Held-out scenario: ${badHeld.length} wrong, ${held.get("none")?.falseBlock.n ?? "?"} correct sentences. Silence = slowest 5% of turns.`,
     "<!-- table:end -->",
     "",
   );
@@ -160,7 +153,7 @@ export function renderReport(all: Results, rec: Recommendation): string {
   }
   if (judges.length) {
     findings.push(
-      `**2. General AI models are accurate enough but too slow.** Checking every sentence with ${judges.map((m) => name(m.checker).replace(" on every sentence", "")).join(", ")} stopped ${range(judges.map((m) => m.caught.all.rate), pct)} of wrong sentences, but added ${range(judges.map((m) => m.firstAudio.p95), (x) => `${Math.round(x)}`)} ms of silence, well over the ${study.latency_budget_ms} ms limit` +
+      `**2. General AI models are accurate enough but too slow.** Checking every sentence with ${judges.map((m) => name(m.checker)).join(", ")} stopped ${range(judges.map((m) => m.caught.all.rate), pct)} of wrong sentences, but added ${range(judges.map((m) => m.firstAudio.p95), (x) => `${Math.round(x)}`)} ms of silence, well over the ${study.latency_budget_ms} ms limit` +
         (judges.some((m) => m.falseBlock.rate > study.max_false_block_rate) ? `, and some wrongly stopped up to ${pct(Math.max(...judges.map((m) => m.falseBlock.rate)))} of correct sentences.` : "."),
     );
   }
@@ -391,7 +384,7 @@ function renderAppendix(all: Results, rec: Recommendation): string {
 /** The repo README's results block: the report's plain summary and results table, plus a link. */
 export function readmeBlock(report: string, link: string): string {
   const section = (name: string) => report.split(`<!-- ${name}:start -->`)[1]?.split(`<!-- ${name}:end -->`)[0]?.trim() ?? "";
-  return [section("summary"), section("table"), `**[Read the full report](${link})**: the problem, how the experiment worked, every finding, limitations and next steps.`]
+  return [section("summary"), section("table"), `**[Full report](${link})**: method, all findings, limitations, next steps.`]
     .filter(Boolean)
     .join("\n\n");
 }

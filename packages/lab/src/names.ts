@@ -25,7 +25,7 @@ export function plainName(spec: CheckerSpec): string {
   if (spec.kind === "none") return "No check";
   if (spec.kind === "deterministic") return "Rules only";
   const target = spec.kind === "cascade" ? spec.then ?? spec.name : spec.name;
-  const base = spec.kind === "cascade" ? `Rules, then ${modelName(target)}` : `${modelName(target)} on every sentence`;
+  const base = spec.kind === "cascade" ? `Rules → ${modelName(target)}` : modelName(target);
   const t = tags(target);
   return t.length ? `${base} (${t.join(", ")})` : base;
 }

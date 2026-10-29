@@ -1,71 +1,57 @@
 # Voice Arena
 
-**Experiments on how to make AI phone agents safe and fast enough for real customers.**
-
-Companies use AI voice agents to call customers: appointment reminders, overdue bills, membership
-offers. These agents are large language models that turn text into speech as they go, which raises
-practical questions: how do you stop one from saying something false, and what does that cost in
-delay and money? Each study here answers one such question by measuring it on simulated calls,
-with the method and its limits written down.
+Experiments on making AI phone agents accurate and fast enough for real customers, each measured
+on simulated calls with its method and limits written down.
 
 | Study | Question | Short answer |
 |---|---|---|
-| [1. Checking before speaking](#study-1-checking-before-speaking) | Can an agent's sentences be checked against the company's information before the caller hears them, without slowing the call? | Fast and cheap enough, yes. Worth it on real mistakes, not yet shown. |
+| [1. Checking before speaking](#study-1-checking-before-speaking) | Can an agent's sentences be checked before the caller hears them, without slowing the call? | Fast and cheap enough, yes. Worth it on real mistakes, not yet shown. |
 
 ## Study 1: Checking before speaking
 
-**The question.** An AI agent occasionally states something its sources don't support: a fee that
-doesn't exist, an invented policy. Checking every sentence before it is spoken would stop that, but
-each check adds silence to the call, and a check that is too strict replaces correct answers with
-"someone will follow up." Is there a check that is accurate, fast and cheap enough for live calls?
-Two limits were set before any results: it may wrongly stop at most 5% of correct sentences, and add
-at most 300 ms of silence before the agent starts speaking.
+AI agents occasionally say things their sources don't support, like a wrong fee or an invented
+policy. Checking each sentence before it's spoken would stop that, but every check adds silence, and
+a strict check replaces correct answers with "someone will follow up". Limits set in advance: at most
+5% of correct sentences stopped, at most 300 ms of added silence.
 
-**How it was tested.** An AI agent held 42 simulated phone calls for two made-up businesses (a
-dental office and an internet provider) with AI "customers" of seven kinds, from cooperative to upset.
-Every sentence the agent said, plus known-wrong sentences planted on purpose, was run through each
-candidate check: plain rules, general AI models, a fast "decision model" (Jev), and combinations.
-Settings were tuned on one business and the results measured on the other.
+**Method.** 42 simulated calls for two made-up businesses, with AI "customers" from cooperative to
+upset. Every agent sentence, plus planted mistakes, went through each check: plain rules, AI models,
+a fast decision model (Jev), and combinations. Tuned on one business, measured on the other.
 
 ### What it found
 
 <!-- snapshot:start -->
-The best approach, **Rules, then Jev**, stopped **90%** of wrong sentences while wrongly stopping **2.6%** of correct ones, and added **161 ms** of silence before the agent speaks, at about **$0.22 per 1,000 calls**. Asking a general AI model to check every sentence caught a similar share but added 0.7–1.4 seconds of silence, too slow for a phone call.
+- **Fast and cheap enough.** Rules → Jev stopped 90% of wrong sentences, wrongly stopped 2.6% of correct ones, and added 161 ms of silence, at $0.22 per 1,000 calls.
+- **General AI models are too slow.** Checking every sentence with one added 0.7–1.4 s of silence.
+- **Value on real mistakes is unproven.** The agent was already right 97% of the time. Of its 4 real mistakes, the check stopped 1, and it wrongly held 4 correct sentences; most of the 90% comes from planted mistakes. Best aimed at costly claims (fees, refunds, promises).
 
-**So the check is fast and cheap enough to run on every call. Whether it is worth turning on is less clear.** The agent was already right about 97% of the time (4 wrong statements in 158 sentences), and of those 4 real mistakes the check stopped 1, while wrongly holding back 4 correct sentences. Most of its 90% comes from mistakes planted for the test. When an agent rarely errs, even a small rate of wrongly stopped sentences interrupts callers about as often as it saves them, so a check like this pays off where a single wrong statement is costly (fees, refunds, promises), and its value on real mistakes still needs measuring.
-
-| Approach | Wrong sentences stopped | Correct sentences wrongly stopped | Extra silence before speaking | Cost per 1,000 calls | Meets both limits? |
+| Approach | Wrong stopped | Correct wrongly stopped | Added silence | Cost / 1k calls | Within limits? |
 |---|---|---|---|---|---|
-| No check | 0% (0 of 42) | 0% (0 of 154) | 0 ms | $0.00 | baseline |
-| Rules only | 62% (26 of 42) | 0.6% (1 of 154) | 0 ms | $0.00 | yes |
-| Gemini Flash-Lite on every sentence | 81% (34 of 42) | 1.3% (2 of 154) | 1018 ms | $2.12 | too slow |
-| GPT-5.4 nano on every sentence | 93% (39 of 42) | 15% (23 of 154) | 697 ms | $2.08 | stops too many correct sentences; too slow |
-| Claude Haiku on every sentence | 88% (37 of 42) | 9.7% (15 of 154) | 1378 ms | $1.27 | stops too many correct sentences; too slow |
-| Jev on every sentence | 86% (36 of 42) | 4.5% (7 of 154) | 177 ms | $0.43 | yes |
-| Rules, then Gemini Flash-Lite | 88% (37 of 42) | 0.6% (1 of 154) | 828 ms | $1.06 | too slow |
-| **Rules, then Jev** | 90% (38 of 42) | 2.6% (4 of 154) | 161 ms | $0.22 | yes |
+| No check | 0% | 0% | 0 ms | $0.00 | — |
+| Rules only | 62% | 0.6% | 0 ms | $0.00 | yes |
+| Gemini Flash-Lite | 81% | 1.3% | 1018 ms | $2.12 | too slow |
+| GPT-5.4 nano | 93% | 15% | 697 ms | $2.08 | too strict, too slow |
+| Claude Haiku | 88% | 9.7% | 1378 ms | $1.27 | too strict, too slow |
+| Jev | 86% | 4.5% | 177 ms | $0.43 | yes |
+| Rules → Gemini Flash-Lite | 88% | 0.6% | 828 ms | $1.06 | too slow |
+| **Rules → Jev** | 90% | 2.6% | 161 ms | $0.22 | yes |
 
-Measured on Northwind Fiber (past-due bill). Silence is for the slowest 5% of agent turns.
+A model alone checks every sentence; "Rules →" sends it only sentences with something to check. Held-out scenario: 42 wrong, 154 correct sentences. Silence = slowest 5% of turns.
 
-**[Read the full report](snapshots/2026-10-29T18-11-07-063Z/README.md)**: the problem, how the experiment worked, every finding, limitations and next steps.
+**[Full report](snapshots/2026-10-29T18-11-07-063Z/README.md)**: method, all findings, limitations, next steps.
 <!-- snapshot:end -->
 
 ### How the check works
 
 ```
-agent's words ─▶ split into sentences ─▶ check each one against ─▶ speak it, or replace it with
-  (streamed)                             the company's information  "I'll have someone follow up"
+agent's words ─▶ sentences ─▶ check each against the company's info ─▶ speak, or say "someone will follow up"
 ```
 
-Each sentence is checked the moment it is complete, while the agent keeps generating, so usually
-only the first sentence of a reply waits. A sentence can only be "supported" by what the agent is
-actually allowed to know at that point: the company's information, the customer's account only
-after they've confirmed who they are, and actions really completed on the call.
-
-Managed voice platforms can host a check like this too (for example, by routing the model through
-your own endpoint); here it runs in a small orchestration of its own, where every step is visible and
-timed. The check is a standalone library ([`packages/speech-gate`](packages/speech-gate)); the rest
-of the repo is the test lab that measures it.
+Each sentence is checked as soon as it's complete, while the agent keeps talking, so usually only a
+reply's first sentence waits. The check is a standalone library
+([`packages/speech-gate`](packages/speech-gate)); the rest of the repo is the lab that measures it.
+Managed voice platforms can host a check like this too (e.g. via a custom model endpoint); here it
+runs in its own small pipeline so every step is visible and timed.
 
 ---
 

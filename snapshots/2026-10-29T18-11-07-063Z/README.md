@@ -5,9 +5,9 @@
 AI phone agents sometimes state things that aren't true: a wrong fee, an invented policy. This study tested ways to check each sentence before the caller hears it.
 
 <!-- summary:start -->
-The best approach, **Rules, then Jev**, stopped **90%** of wrong sentences while wrongly stopping **2.6%** of correct ones, and added **161 ms** of silence before the agent speaks, at about **$0.22 per 1,000 calls**. Asking a general AI model to check every sentence caught a similar share but added 0.7–1.4 seconds of silence, too slow for a phone call.
-
-**So the check is fast and cheap enough to run on every call. Whether it is worth turning on is less clear.** The agent was already right about 97% of the time (4 wrong statements in 158 sentences), and of those 4 real mistakes the check stopped 1, while wrongly holding back 4 correct sentences. Most of its 90% comes from mistakes planted for the test. When an agent rarely errs, even a small rate of wrongly stopped sentences interrupts callers about as often as it saves them, so a check like this pays off where a single wrong statement is costly (fees, refunds, promises), and its value on real mistakes still needs measuring.
+- **Fast and cheap enough.** Rules → Jev stopped 90% of wrong sentences, wrongly stopped 2.6% of correct ones, and added 161 ms of silence, at $0.22 per 1,000 calls.
+- **General AI models are too slow.** Checking every sentence with one added 0.7–1.4 s of silence.
+- **Value on real mistakes is unproven.** The agent was already right 97% of the time. Of its 4 real mistakes, the check stopped 1, and it wrongly held 4 correct sentences; most of the 90% comes from planted mistakes. Best aimed at costly claims (fees, refunds, promises).
 
 <!-- summary:end -->
 
@@ -47,21 +47,21 @@ The winner is chosen by a fixed rule written before the results: among approache
 ## Findings
 
 <!-- table:start -->
-| Approach | Wrong sentences stopped | Correct sentences wrongly stopped | Extra silence before speaking | Cost per 1,000 calls | Meets both limits? |
+| Approach | Wrong stopped | Correct wrongly stopped | Added silence | Cost / 1k calls | Within limits? |
 |---|---|---|---|---|---|
-| No check | 0% (0 of 42) | 0% (0 of 154) | 0 ms | $0.00 | baseline |
-| Rules only | 62% (26 of 42) | 0.6% (1 of 154) | 0 ms | $0.00 | yes |
-| Gemini Flash-Lite on every sentence | 81% (34 of 42) | 1.3% (2 of 154) | 1018 ms | $2.12 | too slow |
-| GPT-5.4 nano on every sentence | 93% (39 of 42) | 15% (23 of 154) | 697 ms | $2.08 | stops too many correct sentences; too slow |
-| Claude Haiku on every sentence | 88% (37 of 42) | 9.7% (15 of 154) | 1378 ms | $1.27 | stops too many correct sentences; too slow |
-| Jev on every sentence | 86% (36 of 42) | 4.5% (7 of 154) | 177 ms | $0.43 | yes |
-| Rules, then Gemini Flash-Lite | 88% (37 of 42) | 0.6% (1 of 154) | 828 ms | $1.06 | too slow |
-| **Rules, then Jev** | 90% (38 of 42) | 2.6% (4 of 154) | 161 ms | $0.22 | yes |
+| No check | 0% | 0% | 0 ms | $0.00 | — |
+| Rules only | 62% | 0.6% | 0 ms | $0.00 | yes |
+| Gemini Flash-Lite | 81% | 1.3% | 1018 ms | $2.12 | too slow |
+| GPT-5.4 nano | 93% | 15% | 697 ms | $2.08 | too strict, too slow |
+| Claude Haiku | 88% | 9.7% | 1378 ms | $1.27 | too strict, too slow |
+| Jev | 86% | 4.5% | 177 ms | $0.43 | yes |
+| Rules → Gemini Flash-Lite | 88% | 0.6% | 828 ms | $1.06 | too slow |
+| **Rules → Jev** | 90% | 2.6% | 161 ms | $0.22 | yes |
 
-Measured on Northwind Fiber (past-due bill). Silence is for the slowest 5% of agent turns.
+A model alone checks every sentence; "Rules →" sends it only sentences with something to check. Held-out scenario: 42 wrong, 154 correct sentences. Silence = slowest 5% of turns.
 <!-- table:end -->
 
-**1. A pre-speech check can be fast and cheap enough for live calls.** Rules, then Jev met both limits: it stopped 38 of 42 wrong sentences, wrongly stopped 4 of 154 correct ones, and added 161 ms. Only 48% of sentences needed the model at all; the rest were greetings, questions and other sentences with nothing to check.
+**1. A pre-speech check can be fast and cheap enough for live calls.** Rules → Jev met both limits: it stopped 38 of 42 wrong sentences, wrongly stopped 4 of 154 correct ones, and added 161 ms. Only 48% of sentences needed the model at all; the rest were greetings, questions and other sentences with nothing to check.
 
 **2. General AI models are accurate enough but too slow.** Checking every sentence with Gemini Flash-Lite, GPT-5.4 nano, Claude Haiku stopped 81%–93% of wrong sentences, but added 697–1378 ms of silence, well over the 300 ms limit, and some wrongly stopped up to 15% of correct sentences.
 
@@ -71,7 +71,7 @@ Measured on Northwind Fiber (past-due bill). Silence is for the slowest 5% of ag
 
 **5. Tuning helped less than it appeared to.** Two improvements were tried on the tuning scenario and then checked on the held-out one. A revised checking prompt changed the share of correct sentences wrongly stopped by −2.6 points on the tuning scenario but only −1.5 points on held-out data. A tuned confidence cutoff for Jev, meant to catch more while staying under the 5.0% limit, changed errors caught by +2.4 points on held-out data but wrongly stopped correct sentences +6.5 points, pushing it over the limit. Improvements measured on the data used to make them overstate what they deliver on new data, which is why the winner is chosen on held-out data only.
 
-**6. On the agent's real mistakes, the benefit is unproven.** Of the agent's own 4 mistakes in the held-out calls, Rules, then Jev stopped 1; its high overall rate comes mostly from planted mistakes, especially changed numbers. Per 100 calls, that means about 14 of the agent's own wrong sentences would still be heard (against 19 with no check), while about 19 correct sentences would be replaced with a follow-up offer. With so few real mistakes, those per-call figures are rough.
+**6. On the agent's real mistakes, the benefit is unproven.** Of the agent's own 4 mistakes in the held-out calls, Rules → Jev stopped 1; its high overall rate comes mostly from planted mistakes, especially changed numbers. Per 100 calls, that means about 14 of the agent's own wrong sentences would still be heard (against 19 with no check), while about 19 correct sentences would be replaced with a follow-up offer. With so few real mistakes, those per-call figures are rough.
 
 ## Limitations
 
@@ -98,22 +98,22 @@ For readers who want to check the details. Checkers appear by their config names
 |---|---|
 | `none` | No check |
 | `deterministic` | Rules only |
-| `flash-lite` | Gemini Flash-Lite on every sentence |
-| `gpt-5.4-nano` | GPT-5.4 nano on every sentence |
-| `haiku-5.5` | Claude Haiku on every sentence |
-| `jev-1.14` | Jev on every sentence |
-| `jev-1.14-calibrated` | Jev on every sentence (tuned cutoff) |
-| `cascade-flash-lite` | Rules, then Gemini Flash-Lite |
-| `cascade-jev` | Rules, then Jev |
-| `cascade-jev-calibrated` | Rules, then Jev (tuned cutoff) |
-| `flash-lite-v2` | Gemini Flash-Lite on every sentence (revised prompt) |
-| `gpt-5.4-nano-v2` | GPT-5.4 nano on every sentence (revised prompt) |
-| `haiku-5.5-v2` | Claude Haiku on every sentence (revised prompt) |
-| `jev-1.14-v2` | Jev on every sentence (revised prompt) |
-| `jev-1.14-v2-calibrated` | Jev on every sentence (revised prompt, tuned cutoff) |
-| `cascade-flash-lite-v2` | Rules, then Gemini Flash-Lite (revised prompt) |
-| `cascade-jev-v2` | Rules, then Jev (revised prompt) |
-| `cascade-jev-v2-calibrated` | Rules, then Jev (revised prompt, tuned cutoff) |
+| `flash-lite` | Gemini Flash-Lite |
+| `gpt-5.4-nano` | GPT-5.4 nano |
+| `haiku-5.5` | Claude Haiku |
+| `jev-1.14` | Jev |
+| `jev-1.14-calibrated` | Jev (tuned cutoff) |
+| `cascade-flash-lite` | Rules → Gemini Flash-Lite |
+| `cascade-jev` | Rules → Jev |
+| `cascade-jev-calibrated` | Rules → Jev (tuned cutoff) |
+| `flash-lite-v2` | Gemini Flash-Lite (revised prompt) |
+| `gpt-5.4-nano-v2` | GPT-5.4 nano (revised prompt) |
+| `haiku-5.5-v2` | Claude Haiku (revised prompt) |
+| `jev-1.14-v2` | Jev (revised prompt) |
+| `jev-1.14-v2-calibrated` | Jev (revised prompt, tuned cutoff) |
+| `cascade-flash-lite-v2` | Rules → Gemini Flash-Lite (revised prompt) |
+| `cascade-jev-v2` | Rules → Jev (revised prompt) |
+| `cascade-jev-v2-calibrated` | Rules → Jev (revised prompt, tuned cutoff) |
 
 **One-line summary (generated by fixed rules):** On 42 unsupported sentences (4 natural, 38 planted) across 1 held-out scenario, cascade-jev caught 90% while blocking 2.6% of correct sentences, adding 161 ms p95 before the first word at $0.22 per 1,000 calls. Ignoring the limits, cascade-jev-calibrated caught the most (93%), not a significant difference.
 
