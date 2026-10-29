@@ -1,0 +1,18 @@
+# Hand-written metadata for the arenas hub (https://github.com/SeijiMatsumoto/arenas).
+# Generated numbers come from each snapshot; edit this file and re-run `npm run arena snapshot <dir>`.
+name: voice-arena
+title: Voice Arena
+study: "Study 1: checking before speaking"
+question: "Can a voice agent's sentences be checked against its sources before the caller hears them, without slowing the call?"
+repo: https://github.com/SeijiMatsumoto/voice-arena
+data: 42 simulated calls for two made-up businesses; tuned on one, measured on the held-out other. Includes planted mistakes.
+labels:
+  source: mixed
+  note: Natural sentences are labeled by agreement of two LLM labelers (disagreements dropped); planted mistakes are wrong by construction.
+outcome:
+  status: not-applicable
+  note: Research study for production voice agents, not an enable-ai decision. The check ships as a standalone library (packages/speech-gate).
+caveats:
+  - Value on real mistakes is unproven. The agent was right ~97% of the time; of its 4 real mistakes the check stopped 1, and most of the catch rate comes from planted mistakes.
+  - Calls are simulated with AI callers, not real customers.
+  - Labels come from LLM labelers, not humans.

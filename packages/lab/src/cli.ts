@@ -12,6 +12,7 @@ import { readmeBlock, renderReport } from "./report.js";
 import { runCheckers, type Results } from "./runner.js";
 import { serve } from "./server.js";
 import { simulateCall, type SentenceRecord } from "./simulate.js";
+import { buildSummary, loadManifest, writeSummary } from "./summary.js";
 
 const USAGE = `arena <command> [options]
 
@@ -191,6 +192,9 @@ async function main(): Promise<void> {
       const rec = recommend(results);
       const report = renderReport(results, rec);
       writeFileSync(join(dest, "README.md"), report);
+      // summary.json for the arenas hub; only public snapshots become snapshots/latest.json.
+      const summary = buildSummary(results, rec, loadManifest(ROOT), dest.slice(ROOT.length + 1), dest.slice(base.length + 1));
+      writeSummary(dest, summary, !isPrivate);
       if (!isPrivate) {
         const readme = join(ROOT, "README.md");
         const rel = dest.slice(ROOT.length + 1);

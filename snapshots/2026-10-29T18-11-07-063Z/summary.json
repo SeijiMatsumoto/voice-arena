@@ -1,0 +1,235 @@
+{
+  "schema": "arena-summary/1",
+  "arena": {
+    "name": "voice-arena",
+    "title": "Voice Arena",
+    "question": "Can a voice agent's sentences be checked against its sources before the caller hears them, without slowing the call?",
+    "repo": "https://github.com/SeijiMatsumoto/voice-arena",
+    "study": "Study 1: checking before speaking"
+  },
+  "snapshot": {
+    "id": "2026-10-29T18-11-07-063Z",
+    "created_at": "2026-10-29T18:11:07.063Z",
+    "path": "snapshots/2026-10-29T18-11-07-063Z"
+  },
+  "headline": "On 42 unsupported sentences (4 natural, 38 planted) across 1 held-out scenario, cascade-jev caught 90% while blocking 2.6% of correct sentences, adding 161 ms p95 before the first word at $0.22 per 1,000 calls. Ignoring the limits, cascade-jev-calibrated caught the most (93%), not a significant difference.",
+  "pick": {
+    "name": "cascade-jev",
+    "reason": "Cheapest, then fastest, of the checkers within both limits whose catches don't differ significantly from the leader's."
+  },
+  "metric": {
+    "name": "caught",
+    "label": "Wrong sentences caught",
+    "higher_is_better": true,
+    "format": "percent"
+  },
+  "latency": {
+    "stat": "p95",
+    "label": "p95 added silence"
+  },
+  "contenders": [
+    {
+      "name": "cascade-jev-calibrated",
+      "kind": "cascade",
+      "quality": 0.9285714285714286,
+      "latency_ms": 160.61499999999998,
+      "cost_per_1k_usd": 0.21769649999999996,
+      "errors": 0,
+      "verdict": "excluded",
+      "note": "blocks 7.1% of correct sentences; blocks 7.1% of correct sentences"
+    },
+    {
+      "name": "cascade-jev-v2-calibrated",
+      "kind": "cascade",
+      "quality": 0.9285714285714286,
+      "latency_ms": 169.95999999999998,
+      "cost_per_1k_usd": 0.25496730000000006,
+      "errors": 0,
+      "verdict": "excluded",
+      "note": "blocks 5.2% of correct sentences; blocks 5.2% of correct sentences"
+    },
+    {
+      "name": "gpt-5.4-nano",
+      "kind": "llm",
+      "quality": 0.9285714285714286,
+      "latency_ms": 697.0149999999998,
+      "cost_per_1k_usd": 2.0759299999999996,
+      "errors": 0,
+      "verdict": "excluded",
+      "note": "blocks 14.9% of correct sentences; blocks 15% of correct sentences; adds 697 ms p95 before the first word"
+    },
+    {
+      "name": "cascade-jev",
+      "kind": "cascade",
+      "quality": 0.9047619047619048,
+      "latency_ms": 160.61499999999998,
+      "cost_per_1k_usd": 0.21769649999999996,
+      "errors": 0,
+      "verdict": "pick",
+      "note": "blocks 2.6% of correct sentences"
+    },
+    {
+      "name": "cascade-jev-v2",
+      "kind": "cascade",
+      "quality": 0.9047619047619048,
+      "latency_ms": 169.95999999999998,
+      "cost_per_1k_usd": 0.25496730000000006,
+      "errors": 0,
+      "verdict": "tied",
+      "note": "blocks 1.9% of correct sentences"
+    },
+    {
+      "name": "gpt-5.4-nano-v2",
+      "kind": "llm",
+      "quality": 0.9047619047619048,
+      "latency_ms": 699.1699999999997,
+      "cost_per_1k_usd": 2.396582500000001,
+      "errors": 3,
+      "verdict": "excluded",
+      "note": "blocks 10.4% of correct sentences; blocks 10% of correct sentences; adds 699 ms p95 before the first word"
+    },
+    {
+      "name": "haiku-5.5-v2",
+      "kind": "llm",
+      "quality": 0.9047619047619048,
+      "latency_ms": 1404.06,
+      "cost_per_1k_usd": 1.4954450000000015,
+      "errors": 0,
+      "verdict": "excluded",
+      "note": "blocks 6.5% of correct sentences; blocks 6.5% of correct sentences; adds 1404 ms p95 before the first word"
+    },
+    {
+      "name": "jev-1.14-v2-calibrated",
+      "kind": "decision",
+      "quality": 0.9047619047619048,
+      "latency_ms": 188.39999999999998,
+      "cost_per_1k_usd": 0.5097981,
+      "errors": 0,
+      "verdict": "excluded",
+      "note": "blocks 9.7% of correct sentences; blocks 9.7% of correct sentences"
+    },
+    {
+      "name": "cascade-flash-lite",
+      "kind": "cascade",
+      "quality": 0.8809523809523809,
+      "latency_ms": 827.915,
+      "cost_per_1k_usd": 1.0611000000000002,
+      "errors": 0,
+      "verdict": "excluded",
+      "note": "blocks 0.6% of correct sentences; adds 828 ms p95 before the first word"
+    },
+    {
+      "name": "cascade-flash-lite-v2",
+      "kind": "cascade",
+      "quality": 0.8809523809523809,
+      "latency_ms": 931.6499999999999,
+      "cost_per_1k_usd": 1.2445875000000004,
+      "errors": 0,
+      "verdict": "excluded",
+      "note": "blocks 1.3% of correct sentences; adds 932 ms p95 before the first word"
+    },
+    {
+      "name": "haiku-5.5",
+      "kind": "llm",
+      "quality": 0.8809523809523809,
+      "latency_ms": 1377.65,
+      "cost_per_1k_usd": 1.2723049999999998,
+      "errors": 1,
+      "verdict": "excluded",
+      "note": "blocks 9.7% of correct sentences; blocks 9.7% of correct sentences; adds 1378 ms p95 before the first word"
+    },
+    {
+      "name": "jev-1.14-calibrated",
+      "kind": "decision",
+      "quality": 0.8809523809523809,
+      "latency_ms": 176.73499999999999,
+      "cost_per_1k_usd": 0.4348281000000001,
+      "errors": 0,
+      "verdict": "excluded",
+      "note": "blocks 13.0% of correct sentences; blocks 13% of correct sentences"
+    },
+    {
+      "name": "jev-1.14",
+      "kind": "decision",
+      "quality": 0.8571428571428571,
+      "latency_ms": 176.73499999999999,
+      "cost_per_1k_usd": 0.4348281000000001,
+      "errors": 0,
+      "verdict": "tied",
+      "note": "blocks 4.5% of correct sentences"
+    },
+    {
+      "name": "jev-1.14-v2",
+      "kind": "decision",
+      "quality": 0.8571428571428571,
+      "latency_ms": 188.39999999999998,
+      "cost_per_1k_usd": 0.5097981,
+      "errors": 0,
+      "verdict": "tied",
+      "note": "blocks 1.9% of correct sentences"
+    },
+    {
+      "name": "flash-lite",
+      "kind": "llm",
+      "quality": 0.8095238095238095,
+      "latency_ms": 1017.9,
+      "cost_per_1k_usd": 2.1151375000000003,
+      "errors": 0,
+      "verdict": "excluded",
+      "note": "blocks 1.3% of correct sentences; adds 1018 ms p95 before the first word"
+    },
+    {
+      "name": "flash-lite-v2",
+      "kind": "llm",
+      "quality": 0.8095238095238095,
+      "latency_ms": 1590.1749999999988,
+      "cost_per_1k_usd": 2.480025000000001,
+      "errors": 0,
+      "verdict": "excluded",
+      "note": "blocks 2.6% of correct sentences; adds 1590 ms p95 before the first word"
+    },
+    {
+      "name": "deterministic",
+      "kind": "deterministic",
+      "quality": 0.6190476190476191,
+      "latency_ms": 0.1,
+      "cost_per_1k_usd": 0,
+      "errors": 0,
+      "verdict": "worse",
+      "note": "blocks 0.6% of correct sentences"
+    },
+    {
+      "name": "none",
+      "kind": "none",
+      "quality": 0,
+      "latency_ms": 0,
+      "cost_per_1k_usd": 0,
+      "errors": 0,
+      "verdict": "baseline",
+      "note": "blocks 0.0% of correct sentences"
+    }
+  ],
+  "data": {
+    "items": 221,
+    "description": "42 simulated calls for two made-up businesses; tuned on one, measured on the held-out other. Includes planted mistakes.",
+    "labels": {
+      "source": "mixed",
+      "note": "Natural sentences are labeled by agreement of two LLM labelers (disagreements dropped); planted mistakes are wrong by construction."
+    }
+  },
+  "method": {
+    "rules": "Eligible = at most 5% of correct sentences blocked and at most 300 ms p95 added silence; tied = not significantly different from the leader; pick = cheapest, then fastest, tied checker. Latency is p95 silence added before the first word.",
+    "test": "exact McNemar, paired",
+    "alpha": 0.05
+  },
+  "outcome": {
+    "status": "not-applicable",
+    "note": "Research study for production voice agents, not an enable-ai decision. The check ships as a standalone library (packages/speech-gate)."
+  },
+  "caveats": [
+    "Value on real mistakes is unproven. The agent was right ~97% of the time; of its 4 real mistakes the check stopped 1, and most of the catch rate comes from planted mistakes.",
+    "Calls are simulated with AI callers, not real customers.",
+    "Labels come from LLM labelers, not humans."
+  ],
+  "mock": false
+}
