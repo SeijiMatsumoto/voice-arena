@@ -6,7 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "arena": "tsx --conditions=development packages/arena/src/cli.ts",
+    "arena": "tsx --conditions=development packages/lab/src/cli.ts",
     "test": "vitest run",
     "typecheck": "tsc -b",
     "build": "tsc -b packages/speech-gate"

@@ -1,4 +1,4 @@
 {
   "files": [],
-  "references": [{ "path": "packages/speech-gate" }, { "path": "packages/arena" }]
+  "references": [{ "path": "packages/speech-gate" }, { "path": "packages/lab" }]
 }

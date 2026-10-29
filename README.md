@@ -56,7 +56,7 @@ is supported only if a tool call really logged it.
 | Rule | Where |
 |---|---|
 | Account facts don't exist for the agent until the caller confirms identity, either by a yes or by matching a field such as date of birth. A denial is permanent for the call. | `CallSession` |
-| The agent's prompt omits the call's purpose and call-specific rules until identity is confirmed, so it can't hint at the account (e.g. "she can update her card") to the wrong person. | `agentPrompt` (arena) |
+| The agent's prompt omits the call's purpose and call-specific rules until identity is confirmed, so it can't hint at the account (e.g. "she can update her card") to the wrong person. | `agentPrompt` (lab) |
 | Tools are validated server-side: no account tools before verification, each request kind at most once per call, unknown kinds rejected. | `CallSession.handleTool` |
 | After the call, an audit checks for promised callbacks nobody logged, card numbers read aloud (redacted before storage), dollar amounts not in the sources, and account details spoken before verification. | `auditCall` |
 
@@ -128,7 +128,7 @@ overstate it. The rules (fixed in [`study.yaml`](study.yaml) and the code, befor
   visible.
 - **Decision-model cutoffs by rule.** `threshold: calibrated` picks the highest cutoff whose false-block
   rate on the tuning scenario's correct sentences stays within the 5% limit
-  ([`calibrate.ts`](packages/arena/src/calibrate.ts)), then freezes it in `calibration.json`. Yes/no LLM
+  ([`calibrate.ts`](packages/lab/src/calibrate.ts)), then freezes it in `calibration.json`. Yes/no LLM
   checkers have no such knob.
 - **Labels never move with tuning.** Labelers keep the original support rules whatever the checkers
   use, so tuning can't redefine what counts as correct. One tuning-scenario label was corrected by an
@@ -223,14 +223,14 @@ Two packages, so the guardrail can be reused without the experiment around it:
 - **`packages/speech-gate/`: the guardrail itself.** A small library you'd put inside a voice agent:
   splits the agent's text into sentences, checks each one, decides speak or block. It also has the
   identity check and the after-call audit. Nothing in it is about experiments.
-- **`packages/arena/`: the test lab around it.** Simulates calls, plants errors, gets labels, runs
+- **`packages/lab/`: the test lab around it.** Simulates calls, plants errors, gets labels, runs
   every checker, scores them, writes reports and serves the web UI. It is the `npm run arena`
   command.
 
 | Path | What it is |
 |---|---|
 | `packages/speech-gate/` | The guardrail library: sentence splitter, claim extraction, checkers, streaming gate, call session, audit |
-| `packages/arena/` | The test lab: CLI, call simulator, planted errors, labels, runner, metrics, fixed-rule picks, reports, web server |
+| `packages/lab/` | The test lab: CLI, call simulator, planted errors, labels, runner, metrics, fixed-rule picks, reports, web server |
 | `packs/` | Public synthetic scenarios and their generated data |
 | `web/` | The local web UI (React + Vite) served by `arena serve` |
 | `study.yaml`, `checkers.yaml` | Frozen study settings and the contenders |
