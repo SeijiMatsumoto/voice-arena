@@ -1,0 +1,20 @@
+{
+  "name": "voice-arena",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "arena": "tsx --conditions=development packages/arena/src/cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -b",
+    "build": "tsc -b packages/speech-gate"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

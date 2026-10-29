@@ -1,0 +1,98 @@
+# Contenders. Adding one is one entry. `arena run` uses every enabled entry unless --checkers is given.
+#
+# kind: none           baseline: every sentence is spoken unchecked
+# kind: deterministic  numbers, prices, times and dates must appear in the sources; pack rules; no model
+# kind: llm            small generative model, one yes/no answer via JSON schema
+# kind: decision       decision model via OpenRouter's Decisions API (Jev & co.): one probability
+# kind: cascade        deterministic first; only sentences with something to check reach `then`
+#
+# prompt: v1 (default) | v2 ...   checker prompt version (speech-gate/src/prompts.ts); one wording per
+#                                  version for every model checker, so a revision is a method change.
+
+checkers:
+  - name: none
+    kind: none
+
+  - name: deterministic
+    kind: deterministic
+
+  - name: flash-lite
+    kind: llm
+    model: google/gemini-3.1-flash-lite
+    extra: { reasoning: { effort: minimal } }
+
+  - name: gpt-5.4-nano
+    kind: llm
+    model: openai/gpt-5.4-nano
+    extra: { reasoning: { effort: minimal } }
+
+  - name: haiku-5.5
+    kind: llm
+    model: anthropic/claude-haiku-5.5
+    extra: { reasoning: { effort: minimal } }
+
+  - name: jev-1.14
+    kind: decision
+    model: typesafe/jev-1.14
+    threshold: 0.5
+
+  # Same model and requests as jev-1.14; the cutoff is fitted on the tuning scenarios (calibrate.ts).
+  - name: jev-1.14-calibrated
+    kind: decision
+    model: typesafe/jev-1.14
+    threshold: calibrated
+
+  - name: cascade-flash-lite
+    kind: cascade
+    then: flash-lite
+
+  - name: cascade-jev
+    kind: cascade
+    then: jev-1.14
+
+  - name: cascade-jev-calibrated
+    kind: cascade
+    then: jev-1.14-calibrated
+
+  # ---- v2 prompt: one shared revision, written from tuning-scenario (dental) failures only ----
+  - name: flash-lite-v2
+    kind: llm
+    model: google/gemini-3.1-flash-lite
+    prompt: v2
+    extra: { reasoning: { effort: minimal } }
+
+  - name: gpt-5.4-nano-v2
+    kind: llm
+    model: openai/gpt-5.4-nano
+    prompt: v2
+    extra: { reasoning: { effort: minimal } }
+
+  - name: haiku-5.5-v2
+    kind: llm
+    model: anthropic/claude-haiku-5.5
+    prompt: v2
+    extra: { reasoning: { effort: minimal } }
+
+  - name: jev-1.14-v2
+    kind: decision
+    model: typesafe/jev-1.14
+    prompt: v2
+    threshold: 0.5
+
+  - name: jev-1.14-v2-calibrated
+    kind: decision
+    model: typesafe/jev-1.14
+    prompt: v2
+    threshold: calibrated
+
+  - name: cascade-flash-lite-v2
+    kind: cascade
+    then: flash-lite-v2
+
+  - name: cascade-jev-v2
+    kind: cascade
+    then: jev-1.14-v2
+
+  - name: cascade-jev-v2-calibrated
+    kind: cascade
+    then: jev-1.14-v2-calibrated

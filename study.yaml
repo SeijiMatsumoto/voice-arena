@@ -1,0 +1,41 @@
+# Frozen before a run. Changing anything here changes the cache keys, so reruns pay again.
+version: v1
+budget_usd: 10.0            # hard cap per command, uncached spend only
+
+agent:                      # the voice agent under test (text mode)
+  model: openai/gpt-5.4-mini
+  temperature: 0.7
+caller:                     # plays the personas
+  model: google/gemini-3.1-flash-lite
+  temperature: 0.9
+mutator: openai/gpt-5.4-mini   # writes the "changed meaning" planted errors
+# Reference labels: two families, neither used as a checker (enforced at load).
+labelers:
+  - qwen/qwen3-30b-a3b-instruct-2507
+  - meta-llama/llama-3.3-70b-instruct
+
+calls_per_persona: 3
+# Prompts are revised and decision-model cutoffs fitted on these scenarios only. Picks and the
+# headline come from the other (held-out) scenarios.
+tune_packs: [brightside-dental]
+max_agent_turns: 8
+planted_per_pack: { numeric: 25, semantic: 25 }
+
+# Decision limits, fixed before results are seen.
+latency_budget_ms: 300      # p95 silence the gate may add before the agent's first word
+max_false_block_rate: 0.05  # share of correct sentences the gate may stop
+speech_rate_wps: 2.7        # words per second of synthesized speech, for the timing model
+concurrency: 4
+
+# Requests per minute, below what OpenRouter allows this account (new accounts: 20/min on some models).
+rpm:
+  openai/gpt-5.4-mini: 18
+
+# USD per million tokens; used only when the API reports no cost.
+prices_per_million:
+  openai/gpt-5.4-mini: { input: 0.75, output: 4.50 }
+  openai/gpt-5.4-nano: { input: 0.20, output: 1.25 }
+  google/gemini-3.1-flash-lite: { input: 0.25, output: 1.50 }
+  anthropic/claude-haiku-5.5: { input: 0.10, output: 0.50 }
+  qwen/qwen3-30b-a3b-instruct-2507: { input: 0.10, output: 0.30 }
+  meta-llama/llama-3.3-70b-instruct: { input: 0.10, output: 0.32 }

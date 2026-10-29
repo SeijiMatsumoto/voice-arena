@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.cache/
+reports/
+# Private scenario packs (material that can't be published) never go in the public repo.
+packs-private/
+packs/*/data-mock/

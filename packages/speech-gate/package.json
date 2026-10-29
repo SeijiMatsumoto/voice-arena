@@ -1,0 +1,14 @@
+{
+  "name": "@voice-arena/speech-gate",
+  "version": "0.1.0",
+  "description": "Check each sentence a voice agent is about to speak against its sources, before the caller hears it.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"]
+}

@@ -1,0 +1,20 @@
+{
+  "jev-1.14-calibrated": {
+    "checker": "jev-1.14-calibrated",
+    "threshold": 0.7,
+    "n": 133,
+    "falseBlockRate": 0.045112781954887216,
+    "packs": [
+      "brightside-dental"
+    ]
+  },
+  "jev-1.14-v2-calibrated": {
+    "checker": "jev-1.14-v2-calibrated",
+    "threshold": 0.8,
+    "n": 133,
+    "falseBlockRate": 0.045112781954887216,
+    "packs": [
+      "brightside-dental"
+    ]
+  }
+}

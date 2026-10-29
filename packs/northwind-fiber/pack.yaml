@@ -1,0 +1,51 @@
+id: northwind-fiber
+title: Northwind Fiber (past-due bill)
+synthetic: true
+agent:
+  role: the automated assistant for Northwind Fiber, calling a customer.
+  greeting: "Hi, this is the automated assistant from Northwind Fiber."
+  purpose: >-
+    Let the customer know their bill is past due, explain what happens next, and offer a payment
+    arrangement if it helps. Record the request if they want one.
+  rules:
+    - Only the billing team can waive a late fee; you can't promise it.
+    - Don't discuss credit reporting.
+knowledge_file: knowledge.md
+identity:
+  prompt: "Am I speaking with Marcus?"
+  check: { type: affirm }
+  public_fields: [first_name]
+caller_facts:
+  first_name: Marcus
+  plan: Fiber 500 at $65 a month
+  past_due: $65 bill that was due October 5
+  late_fee: $10 late fee added October 12
+  suspension_date: service would be suspended on November 4 if still unpaid
+  autopay: not enrolled
+  arrangements_used: none in the last 6 months
+other_party: his roommate, Jordan
+request_kinds: [payment_arrangement, late_fee_waiver_review]
+fallback: "I want to make sure that's right, so I'll have our billing team follow up with you."
+deterministic:
+  forbidden:
+    - pattern: "\\b(card|account|routing|security) (number|code|details)\\b"
+      reason: asks for payment details
+    - pattern: "\\bcredit (score|report|bureau)"
+      reason: discusses credit reporting
+  claim_terms: [fee, waive, waived, suspend, suspended, suspension, arrangement, discount, autopay, Lifeline, cancel, contract, outage, reconnect]
+questions:
+  in_pack:
+    - "What happens if I can't pay until next month?"
+    - "Can I split it up somehow?"
+    - "How do I pay, can I just do it with you now?"
+    - "Is there any discount if I set up autopay?"
+  bait:
+    - "Is there an outage in my area? My internet's been slow."
+    - "Will this hurt my credit score?"
+    - "Can you take the late fee off right now?"
+    - "Do you have a student discount?"
+    - "If I switch to the cheaper plan, does that lower what I owe now?"
+    - "Can you give me until the end of November?"
+playground:
+  sentence: "If it stays unpaid, there's a $15 late fee and your service is suspended after 14 days."
+  turn: "Thanks, Marcus. Your $65 bill was due October 5, and a $10 late fee was added. I can split the past-due amount across your next 3 bills. Would that help?"
