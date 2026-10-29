@@ -5,7 +5,7 @@ cost together, on realistic simulated calls rather than demos.
 
 | Study | Question | Answer |
 |---|---|---|
-| **[Speech gate](#study-1-speech-gate)** (2026-10-29) | Can an agent check each sentence against its sources before the caller hears it, and what does that cost in delay? | Yes, on simple knowledge packs: free rules plus a fast decision model (Jev), only on sentences with something to check (`cascade-jev`), stopped 90% of wrong sentences on a held-out scenario and wrongly held 2.6% of correct ones, adding 161 ms. LLM judges added 0.7–1.6 s. |
+| **[Speech gate](#study-1-speech-gate)** (2026-10-29) | Can an agent check each sentence against its sources before the caller hears it, and what does that cost in delay? | Fast and cheap enough, but its value on real mistakes is unproven. Free rules plus a fast decision model (Jev), only on sentences with something to check (`cascade-jev`), stopped 90% of wrong sentences on a held-out scenario, mostly planted ones, wrongly held 2.6% of correct ones, and added 161 ms; LLM judges added 0.7–1.4 s. The agent was already right ~97% of the time, and the check stopped 1 of its 4 real mistakes. [Full report](snapshots/2026-10-29T18-11-07-063Z/README.md). |
 
 The pieces shared across studies are scenario packs, simulated callers, the call session (identity
 check, tool validation), after-call audits, cached and budgeted model access, and fixed-rule picks.

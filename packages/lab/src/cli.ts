@@ -22,6 +22,7 @@ const USAGE = `arena <command> [options]
   run                        every checker over every sentence -> reports/<time>/
   all                        simulate, plant, label, run (labels need the plants)
   show [report-dir]          print a report (latest by default)
+  report [dir]               rewrite a report (or snapshot README) from its saved results; no API calls
   snapshot [report-dir]      copy a report into snapshots/ and update the README
   serve [--port 8004]        local web UI (build it first: cd web && npm ci && npm run build)
 
@@ -161,6 +162,15 @@ async function main(): Promise<void> {
       break;
     case "serve": {
       serve(study, values.port ? Number(values.port) : 8004);
+      return;
+    }
+    case "report": {
+      const dir = arg ?? latestReport();
+      const results = JSON.parse(readFileSync(join(dir, "results.json"), "utf8")) as Results;
+      // Snapshots keep their report as README.md; live reports as report.md.
+      const file = existsSync(join(dir, "README.md")) ? "README.md" : "report.md";
+      writeFileSync(join(dir, file), renderReport(results, recommend(results)));
+      console.log(`rewrote ${join(dir, file)}`);
       return;
     }
     case "show": {
