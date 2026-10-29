@@ -3,9 +3,9 @@
 Measured answers to the engineering questions behind production voice agents: quality, latency and
 cost together, on realistic simulated calls rather than demos.
 
-| Study | Question | Status |
+| Study | Question | Answer |
 |---|---|---|
-| **Speech gate** (below) | Can an agent check each sentence against its sources before the caller hears it, and what does that cost in delay? | Running |
+| **[Speech gate](#study-1-speech-gate)** (2026-10-29) | Can an agent check each sentence against its sources before the caller hears it, and what does that cost in delay? | Yes: free rules plus a fast decision model (Jev), only on sentences with something to check, stopped 90% of wrong sentences and wrongly held 2.6% of correct ones, adding 161 ms. LLM judges added 0.7–1.6 s. |
 
 The pieces shared across studies are scenario packs, simulated callers, the call session (identity
 check, tool validation), after-call audits, cached and budgeted model access, and fixed-rule picks.
